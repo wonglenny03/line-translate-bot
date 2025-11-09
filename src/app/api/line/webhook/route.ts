@@ -137,7 +137,8 @@ async function handleMessageTranslation(
   userId: string,
   text: string,
   replyToken: string,
-  originalMessageId?: string
+  originalMessageId?: string,
+  quoteToken?: string
 ) {
   logger.info("🔄 处理消息翻译", { userId, text })
   const targetLanguages = getUserLanguages(userId)
@@ -188,25 +189,38 @@ async function handleMessageTranslation(
       replyToken,
       textLength: translationText.length,
       hasOriginalMessageId: !!originalMessageId,
+      originalText: text.substring(0, 50),
     })
 
-    // 构建回复消息，如果有关联的消息 ID 则引用原消息
-    // Line Messaging API 中，引用原消息使用 quote 对象
+    // 使用 replyMessage 和 replyToken 回复
+    // Line 会自动将回复关联到原消息（使用 replyToken）
+    // 注意：replyToken 有效期约 30 秒，需要在收到 webhook 后尽快使用
+    // 如果提供了 quoteToken，可以使用它来引用原消息
+    logger.info("📤 准备发送回复", {
+      replyToken: replyToken.substring(0, 20) + "...",
+      translationCount: Object.keys(translations).length,
+      hasQuoteToken: !!quoteToken,
+    })
+
+    // 构建回复消息
     const replyMessage: any = {
       type: "text",
       text: translationText,
     }
 
-    // 如果有关联的消息 ID，添加引用
-    // Line Messaging API v2 支持 quote 字段来引用原消息
-    if (originalMessageId) {
-      replyMessage.quote = {
-        quoteToken: originalMessageId,
-      }
+    // 如果提供了 quoteToken，添加引用
+    if (quoteToken) {
+      replyMessage.quoteToken = quoteToken
+      logger.debug("使用 quoteToken 引用原消息", {
+        quoteToken: quoteToken.substring(0, 20) + "...",
+      })
     }
 
     const result = await lineClient.replyMessage(replyToken, [replyMessage])
-    logger.info("✅ 翻译结果发送成功", { result })
+
+    logger.info("✅ 翻译结果发送成功", {
+      result,
+    })
   } catch (error: any) {
     logger.error("❌ 翻译错误", { error: error.message, fullError: error })
     try {
@@ -418,19 +432,30 @@ export async function POST(req: NextRequest) {
             }
           } else {
             // 普通消息，进行翻译
-            // 获取原始消息 ID 用于引用
-            const originalMessageId = (messageEvent.message as any).id
+            // 获取原始消息 ID 和 quoteToken 用于引用
+            // Line Messaging API 中，消息 ID 在 message 对象的 id 字段中
+            // quoteToken 在 message 对象的 quoteToken 字段中（如果可用）
+            const messageData = messageEvent.message as any
+            const originalMessageId = messageData.id
+            const quoteToken = messageData.quoteToken // 如果用户引用了其他消息，会有这个字段
+            // 立即保存 replyToken，确保在翻译完成后仍可使用
+            const replyToken = messageEvent.replyToken
             logger.info("📝 处理翻译请求", {
               userId,
               text,
               originalMessageId,
+              hasReplyToken: !!replyToken,
+              hasQuoteToken: !!quoteToken,
+              messageType: messageData.type,
+              messageKeys: Object.keys(messageData),
             })
             try {
               await handleMessageTranslation(
                 userId,
                 text,
-                messageEvent.replyToken,
-                originalMessageId
+                replyToken,
+                originalMessageId,
+                quoteToken
               )
               logger.info("✅ 成功处理翻译请求")
             } catch (error: any) {
