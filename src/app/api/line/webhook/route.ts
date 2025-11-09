@@ -236,6 +236,14 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-line-signature') || ''
     const channelSecret = process.env.LINE_CHANNEL_SECRET || ''
     
+    logger.info('🔐 签名验证信息', {
+      hasSignature: !!signature,
+      signatureLength: signature.length,
+      hasChannelSecret: !!channelSecret,
+      channelSecretLength: channelSecret.length,
+      allHeaders: Object.fromEntries(req.headers.entries())
+    })
+    
     if (!channelSecret) {
       logger.error('❌ LINE_CHANNEL_SECRET 未设置')
       return NextResponse.json(
@@ -244,23 +252,56 @@ export async function POST(req: NextRequest) {
       )
     }
     
+    if (!signature) {
+      logger.warn('⚠️  未收到签名头，可能是测试请求')
+      // 如果是测试请求（没有签名），允许通过（仅用于调试）
+      // 在生产环境中应该拒绝
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          { error: "Missing signature" },
+          { status: 401 }
+        )
+      }
+    }
+    
     // 获取原始 body 文本（用于签名验证）
     const bodyText = await req.text()
     
-    // 验证签名
-    if (!validateSignature(bodyText, channelSecret, signature)) {
-      logger.error('❌ Webhook 签名验证失败', {
-        hasSignature: !!signature,
-        signatureLength: signature.length,
-        bodyLength: bodyText.length
-      })
-      return NextResponse.json(
-        { error: "Invalid signature" },
-        { status: 401 }
-      )
-    }
+    logger.debug('📝 Body 信息', {
+      bodyLength: bodyText.length,
+      bodyPreview: bodyText.substring(0, 200)
+    })
     
-    logger.info('✅ Webhook 签名验证通过')
+    // 验证签名（如果有签名）
+    if (signature) {
+      try {
+        const isValid = validateSignature(bodyText, channelSecret, signature)
+        if (!isValid) {
+          logger.error('❌ Webhook 签名验证失败', {
+            hasSignature: !!signature,
+            signatureLength: signature.length,
+            bodyLength: bodyText.length,
+            channelSecretLength: channelSecret.length
+          })
+          return NextResponse.json(
+            { error: "Invalid signature" },
+            { status: 401 }
+          )
+        }
+        logger.info('✅ Webhook 签名验证通过')
+      } catch (error: any) {
+        logger.error('❌ 签名验证过程出错', {
+          error: error.message,
+          stack: error.stack
+        })
+        return NextResponse.json(
+          { error: "Signature validation error" },
+          { status: 401 }
+        )
+      }
+    } else {
+      logger.warn('⚠️  跳过签名验证（无签名头）')
+    }
     
     // 解析 JSON body
     const body = JSON.parse(bodyText)
