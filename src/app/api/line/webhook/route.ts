@@ -5,6 +5,7 @@ import {
   MessageEvent,
   FollowEvent,
   PostbackEvent,
+  validateSignature,
 } from "@line/bot-sdk"
 import { translateToLanguages, initTranslator } from "@/lib/translator"
 import {
@@ -231,7 +232,38 @@ export async function POST(req: NextRequest) {
     logger.info('🔔 WEBHOOK 请求到达')
     logger.info('='.repeat(50))
     
-    const body = await req.json()
+    // 获取签名和原始 body（用于验证）
+    const signature = req.headers.get('x-line-signature') || ''
+    const channelSecret = process.env.LINE_CHANNEL_SECRET || ''
+    
+    if (!channelSecret) {
+      logger.error('❌ LINE_CHANNEL_SECRET 未设置')
+      return NextResponse.json(
+        { error: "Channel secret not configured" },
+        { status: 500 }
+      )
+    }
+    
+    // 获取原始 body 文本（用于签名验证）
+    const bodyText = await req.text()
+    
+    // 验证签名
+    if (!validateSignature(bodyText, channelSecret, signature)) {
+      logger.error('❌ Webhook 签名验证失败', {
+        hasSignature: !!signature,
+        signatureLength: signature.length,
+        bodyLength: bodyText.length
+      })
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 401 }
+      )
+    }
+    
+    logger.info('✅ Webhook 签名验证通过')
+    
+    // 解析 JSON body
+    const body = JSON.parse(bodyText)
     const events: WebhookEvent[] = body.events || []
 
     // 调试日志 - 始终输出（便于排查问题）
