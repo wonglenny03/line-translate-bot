@@ -64,7 +64,7 @@ async function handleLanguageSelection(
   selectedLangCode: string,
   replyToken: string
 ) {
-  logger.info('🔄 处理语言选择', { userId, selectedLangCode })
+  logger.info("🔄 处理语言选择", { userId, selectedLangCode })
   const currentLanguages = getUserLanguages(userId)
 
   // 切换语言选择（如果已选择则移除，未选择则添加）
@@ -86,7 +86,7 @@ async function handleLanguageSelection(
     .filter(Boolean)
     .join("、")
 
-  logger.info('📤 发送语言选择确认', { replyToken, selectedNames })
+  logger.info("📤 发送语言选择确认", { replyToken, selectedNames })
   try {
     const result = await lineClient.replyMessage(replyToken, [
       {
@@ -95,13 +95,13 @@ async function handleLanguageSelection(
         quickReply: createLanguageQuickReply().quickReply,
       },
     ])
-    logger.info('✅ 语言选择确认发送成功', { result })
+    logger.info("✅ 语言选择确认发送成功", { result })
   } catch (error: any) {
-    logger.error('❌ 发送语言选择确认失败!', {
+    logger.error("❌ 发送语言选择确认失败!", {
       errorType: error.constructor.name,
       errorMessage: error.message,
       statusCode: error.statusCode || error.status,
-      fullError: error
+      fullError: error,
     })
     throw error
   }
@@ -109,9 +109,9 @@ async function handleLanguageSelection(
 
 // 处理重置
 async function handleReset(userId: string, replyToken: string) {
-  logger.info('🔄 处理重置', { userId })
+  logger.info("🔄 处理重置", { userId })
   resetUserLanguages(userId)
-  logger.info('📤 发送重置确认', { replyToken })
+  logger.info("📤 发送重置确认", { replyToken })
   try {
     const result = await lineClient.replyMessage(replyToken, [
       {
@@ -120,13 +120,13 @@ async function handleReset(userId: string, replyToken: string) {
         quickReply: createLanguageQuickReply().quickReply,
       },
     ])
-    logger.info('✅ 重置确认发送成功', { result })
+    logger.info("✅ 重置确认发送成功", { result })
   } catch (error: any) {
-    logger.error('❌ 发送重置确认失败!', {
+    logger.error("❌ 发送重置确认失败!", {
       errorType: error.constructor.name,
       errorMessage: error.message,
       statusCode: error.statusCode || error.status,
-      fullError: error
+      fullError: error,
     })
     throw error
   }
@@ -138,12 +138,12 @@ async function handleMessageTranslation(
   text: string,
   replyToken: string
 ) {
-  logger.info('🔄 处理消息翻译', { userId, text })
+  logger.info("🔄 处理消息翻译", { userId, text })
   const targetLanguages = getUserLanguages(userId)
-  logger.debug('目标语言', { targetLanguages })
+  logger.debug("目标语言", { targetLanguages })
 
   if (targetLanguages.length === 0) {
-    logger.warn('⚠️  用户未选择语言，发送提示')
+    logger.warn("⚠️  用户未选择语言，发送提示")
     try {
       const result = await lineClient.replyMessage(replyToken, [
         {
@@ -152,22 +152,22 @@ async function handleMessageTranslation(
           quickReply: createLanguageQuickReply().quickReply,
         },
       ])
-      logger.info('✅ 语言提示发送成功', { result })
+      logger.info("✅ 语言提示发送成功", { result })
     } catch (error: any) {
-      logger.error('❌ 发送语言提示失败!', { error })
+      logger.error("❌ 发送语言提示失败!", { error })
       throw error
     }
     return
   }
 
   try {
-    logger.info('🌐 开始翻译...')
+    logger.info("🌐 开始翻译...")
     const translations = await translateToLanguages(text, targetLanguages)
-    logger.info('✅ 翻译完成', { languages: Object.keys(translations) })
+    logger.info("✅ 翻译完成", { languages: Object.keys(translations) })
 
     // 如果没有翻译结果（所有目标语言都是源语言）
     if (Object.keys(translations).length === 0) {
-      logger.info('所有目标语言都是源语言，发送提示')
+      logger.info("所有目标语言都是源语言，发送提示")
       await lineClient.replyMessage(replyToken, [
         {
           type: "text",
@@ -183,27 +183,30 @@ async function handleMessageTranslation(
       .map(([lang, translation]) => `${lang}:\n${translation}`)
       .join("\n\n")
 
-    logger.info('📤 发送翻译结果', { replyToken, textLength: translationText.length })
+    logger.info("📤 发送翻译结果", {
+      replyToken,
+      textLength: translationText.length,
+    })
     const result = await lineClient.replyMessage(replyToken, [
       {
         type: "text",
         text: translationText,
       },
     ])
-    logger.info('✅ 翻译结果发送成功', { result })
+    logger.info("✅ 翻译结果发送成功", { result })
   } catch (error: any) {
     logger.error("❌ 翻译错误", { error: error.message, fullError: error })
     try {
-      logger.info('📤 发送错误提示消息')
+      logger.info("📤 发送错误提示消息")
       const result = await lineClient.replyMessage(replyToken, [
         {
           type: "text",
           text: "翻译服务暂时不可用，请稍后再试。",
         },
       ])
-      logger.info('✅ 错误提示发送成功', { result })
+      logger.info("✅ 错误提示发送成功", { result })
     } catch (sendError: any) {
-      logger.error('❌ 发送错误提示也失败了!', { error: sendError })
+      logger.error("❌ 发送错误提示也失败了!", { error: sendError })
     }
   }
 }
@@ -211,88 +214,109 @@ async function handleMessageTranslation(
 // POST处理函数
 export async function POST(req: NextRequest) {
   // 立即写入日志，在任何操作之前 - 使用同步方式确保写入
-  const fs = require('fs');
-  const path = require('path');
-  const logFile = path.join(process.cwd(), 'webhook.log');
-  const timestamp = new Date().toISOString();
-  
+  const fs = require("fs")
+  const path = require("path")
+  const logFile = path.join(process.cwd(), "webhook.log")
+  const timestamp = new Date().toISOString()
+
   try {
-    fs.appendFileSync(logFile, `[${timestamp}] [INFO] ==================================================\n`, 'utf-8');
-    fs.appendFileSync(logFile, `[${timestamp}] [INFO] 🔔 POST 请求到达 /api/line/webhook\n`, 'utf-8');
-    fs.appendFileSync(logFile, `[${timestamp}] [INFO] URL: ${req.url}\n`, 'utf-8');
-    fs.appendFileSync(logFile, `[${timestamp}] [INFO] Method: ${req.method}\n`, 'utf-8');
+    fs.appendFileSync(
+      logFile,
+      `[${timestamp}] [INFO] ==================================================\n`,
+      "utf-8"
+    )
+    fs.appendFileSync(
+      logFile,
+      `[${timestamp}] [INFO] 🔔 POST 请求到达 /api/line/webhook\n`,
+      "utf-8"
+    )
+    fs.appendFileSync(
+      logFile,
+      `[${timestamp}] [INFO] URL: ${req.url}\n`,
+      "utf-8"
+    )
+    fs.appendFileSync(
+      logFile,
+      `[${timestamp}] [INFO] Method: ${req.method}\n`,
+      "utf-8"
+    )
   } catch (e) {
     // 如果文件写入失败，至少输出到 stderr
-    process.stderr.write(`[${timestamp}] 日志写入失败: ${e}\n`);
+    process.stderr.write(`[${timestamp}] 日志写入失败: ${e}\n`)
   }
-  
+
   try {
     // 立即输出日志，确保能看到
-    logger.info('='.repeat(50))
-    logger.info('🔔 WEBHOOK 请求到达')
-    logger.info('='.repeat(50))
-    
+    logger.info("=".repeat(50))
+    logger.info("🔔 WEBHOOK 请求到达")
+    logger.info("=".repeat(50))
+
     // 获取签名和原始 body（用于验证）
-    const signature = req.headers.get('x-line-signature') || ''
-    const channelSecret = process.env.LINE_CHANNEL_SECRET || ''
-    
-    logger.info('🔐 签名验证信息', {
+    const signature = req.headers.get("x-line-signature") || ""
+    const channelSecret = process.env.LINE_CHANNEL_SECRET || ""
+
+    logger.info("🔐 签名验证信息", {
       hasSignature: !!signature,
       signatureLength: signature.length,
       hasChannelSecret: !!channelSecret,
       channelSecretLength: channelSecret.length,
-      allHeaders: Object.fromEntries(req.headers.entries())
+      allHeaders: Object.fromEntries(req.headers.entries()),
     })
-    
+
     if (!channelSecret) {
-      logger.error('❌ LINE_CHANNEL_SECRET 未设置')
+      logger.error("❌ LINE_CHANNEL_SECRET 未设置", {
+        nodeEnv: process.env.NODE_ENV,
+        allEnvKeys: Object.keys(process.env).filter(
+          (k) => k.includes("LINE") || k.includes("OPENAI")
+        ),
+      })
       return NextResponse.json(
         { error: "Channel secret not configured" },
         { status: 500 }
       )
     }
-    
+
     if (!signature) {
-      logger.warn('⚠️  未收到签名头，可能是测试请求')
-      // 如果是测试请求（没有签名），允许通过（仅用于调试）
-      // 在生产环境中应该拒绝
-      if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json(
-          { error: "Missing signature" },
-          { status: 401 }
-        )
-      }
+      logger.warn("⚠️  未收到签名头", {
+        hasSignature: !!signature,
+        allHeaders: Array.from(req.headers.entries()).map(([k, v]) => [
+          k,
+          k === "x-line-signature" ? v.substring(0, 20) + "..." : v,
+        ]),
+      })
+      // 在生产环境中必须拒绝没有签名的请求
+      return NextResponse.json({ error: "Missing signature" }, { status: 401 })
     }
-    
+
     // 获取原始 body 文本（用于签名验证）
     const bodyText = await req.text()
-    
-    logger.debug('📝 Body 信息', {
+
+    logger.debug("📝 Body 信息", {
       bodyLength: bodyText.length,
-      bodyPreview: bodyText.substring(0, 200)
+      bodyPreview: bodyText.substring(0, 200),
     })
-    
+
     // 验证签名（如果有签名）
     if (signature) {
       try {
         const isValid = validateSignature(bodyText, channelSecret, signature)
         if (!isValid) {
-          logger.error('❌ Webhook 签名验证失败', {
+          logger.error("❌ Webhook 签名验证失败", {
             hasSignature: !!signature,
             signatureLength: signature.length,
             bodyLength: bodyText.length,
-            channelSecretLength: channelSecret.length
+            channelSecretLength: channelSecret.length,
           })
           return NextResponse.json(
             { error: "Invalid signature" },
             { status: 401 }
           )
         }
-        logger.info('✅ Webhook 签名验证通过')
+        logger.info("✅ Webhook 签名验证通过")
       } catch (error: any) {
-        logger.error('❌ 签名验证过程出错', {
+        logger.error("❌ 签名验证过程出错", {
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
         })
         return NextResponse.json(
           { error: "Signature validation error" },
@@ -300,24 +324,24 @@ export async function POST(req: NextRequest) {
         )
       }
     } else {
-      logger.warn('⚠️  跳过签名验证（无签名头）')
+      logger.warn("⚠️  跳过签名验证（无签名头）")
     }
-    
+
     // 解析 JSON body
     const body = JSON.parse(bodyText)
     const events: WebhookEvent[] = body.events || []
 
     // 调试日志 - 始终输出（便于排查问题）
-    logger.info('📥 收到 Webhook 事件', { 
+    logger.info("📥 收到 Webhook 事件", {
       eventCount: events.length,
-      events: events.map(e => ({
+      events: events.map((e) => ({
         type: e.type,
         userId: (e as any).source?.userId,
-        hasReplyToken: !!(e as any).replyToken
-      }))
+        hasReplyToken: !!(e as any).replyToken,
+      })),
     })
-    
-    logger.info('环境变量检查', {
+
+    logger.info("环境变量检查", {
       hasAccessToken: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
       hasSecret: !!process.env.LINE_CHANNEL_SECRET,
       hasOpenAIKey: !!process.env.OPENAI_API_KEY,
@@ -328,24 +352,28 @@ export async function POST(req: NextRequest) {
         // 用户加入时发送语言选择
         const followEvent = event as FollowEvent
         try {
-          logger.info('📤 尝试发送语言选择列表', { replyToken: followEvent.replyToken })
+          logger.info("📤 尝试发送语言选择列表", {
+            replyToken: followEvent.replyToken,
+          })
           const message = createLanguageQuickReply()
-          logger.debug('消息内容', message)
+          logger.debug("消息内容", message)
           const result = await lineClient.replyMessage(followEvent.replyToken, [
             message,
           ])
-          logger.info('✅ 成功发送语言选择列表', { result })
+          logger.info("✅ 成功发送语言选择列表", { result })
         } catch (error: any) {
-          logger.error('❌ 发送消息失败!', {
+          logger.error("❌ 发送消息失败!", {
             errorType: error.constructor.name,
             errorMessage: error.message,
             statusCode: error.statusCode || error.status,
             fullError: error,
             originalError: error.originalError,
-            response: error.response ? {
-              data: error.response.data,
-              status: error.response.status
-            } : null
+            response: error.response
+              ? {
+                  data: error.response.data,
+                  status: error.response.status,
+                }
+              : null,
           })
         }
       } else if (event.type === "message") {
@@ -357,33 +385,39 @@ export async function POST(req: NextRequest) {
 
           // 检查是否是语言选择命令
           if (text.startsWith("选择语言") || text.startsWith("语言设置")) {
-            logger.info('📤 发送语言选择列表（命令触发）', { replyToken: messageEvent.replyToken })
+            logger.info("📤 发送语言选择列表（命令触发）", {
+              replyToken: messageEvent.replyToken,
+            })
             try {
               const message = createLanguageQuickReply()
-              const result = await lineClient.replyMessage(messageEvent.replyToken, [
-                message,
-              ])
-              logger.info('✅ 成功发送语言选择列表', { result })
+              const result = await lineClient.replyMessage(
+                messageEvent.replyToken,
+                [message]
+              )
+              logger.info("✅ 成功发送语言选择列表", { result })
             } catch (error: any) {
-              logger.error('❌ 发送语言选择列表失败!', {
+              logger.error("❌ 发送语言选择列表失败!", {
                 errorType: error.constructor.name,
                 errorMessage: error.message,
                 statusCode: error.statusCode || error.status,
-                fullError: error
+                fullError: error,
               })
             }
           } else {
             // 普通消息，进行翻译
-            logger.info('📝 处理翻译请求', { userId, text })
+            logger.info("📝 处理翻译请求", { userId, text })
             try {
               await handleMessageTranslation(
                 userId,
                 text,
                 messageEvent.replyToken
               )
-              logger.info('✅ 成功处理翻译请求')
+              logger.info("✅ 成功处理翻译请求")
             } catch (error: any) {
-              logger.error('❌ 翻译处理失败', { error: error.message, fullError: error })
+              logger.error("❌ 翻译处理失败", {
+                error: error.message,
+                fullError: error,
+              })
             }
           }
         }
@@ -394,7 +428,7 @@ export async function POST(req: NextRequest) {
         const data = postbackEvent.postback.data
         const replyToken = postbackEvent.replyToken
 
-        logger.info('🔘 收到 Postback 事件', { userId, data })
+        logger.info("🔘 收到 Postback 事件", { userId, data })
         try {
           if (data.startsWith("lang_select:")) {
             const langCode = data.split(":")[1]
@@ -402,22 +436,25 @@ export async function POST(req: NextRequest) {
           } else if (data === "lang_reset") {
             await handleReset(userId, replyToken)
           }
-          logger.info('✅ 成功处理 Postback 事件')
+          logger.info("✅ 成功处理 Postback 事件")
         } catch (error: any) {
-          logger.error('❌ 处理 Postback 失败', { error: error.message, fullError: error })
+          logger.error("❌ 处理 Postback 失败", {
+            error: error.message,
+            fullError: error,
+          })
         }
       } else {
-        logger.warn('⚠️  未处理的事件类型', { eventType: event.type })
+        logger.warn("⚠️  未处理的事件类型", { eventType: event.type })
       }
     }
 
-    logger.info('✅ Webhook 处理完成，返回成功')
-    logger.info('='.repeat(50))
+    logger.info("✅ Webhook 处理完成，返回成功")
+    logger.info("=".repeat(50))
     return NextResponse.json({ status: "ok" })
   } catch (error) {
-    logger.error('='.repeat(50))
+    logger.error("=".repeat(50))
     logger.error("❌ Webhook处理错误", { error })
-    logger.error('='.repeat(50))
+    logger.error("=".repeat(50))
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
@@ -427,5 +464,13 @@ export async function POST(req: NextRequest) {
 
 // GET处理函数（用于webhook验证）
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ message: "Line Translation Bot Webhook" })
+  logger.info("🔍 GET 请求到达（Webhook 验证）", {
+    url: req.url,
+    pathname: req.nextUrl.pathname,
+    method: req.method,
+  })
+  return NextResponse.json(
+    { message: "Line Translation Bot Webhook" },
+    { status: 200 }
+  )
 }
