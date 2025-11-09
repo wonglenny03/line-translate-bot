@@ -136,7 +136,8 @@ async function handleReset(userId: string, replyToken: string) {
 async function handleMessageTranslation(
   userId: string,
   text: string,
-  replyToken: string
+  replyToken: string,
+  originalMessageId?: string
 ) {
   logger.info("🔄 处理消息翻译", { userId, text })
   const targetLanguages = getUserLanguages(userId)
@@ -186,13 +187,25 @@ async function handleMessageTranslation(
     logger.info("📤 发送翻译结果", {
       replyToken,
       textLength: translationText.length,
+      hasOriginalMessageId: !!originalMessageId,
     })
-    const result = await lineClient.replyMessage(replyToken, [
-      {
-        type: "text",
-        text: translationText,
-      },
-    ])
+
+    // 构建回复消息，如果有关联的消息 ID 则引用原消息
+    // Line Messaging API 中，引用原消息使用 quote 对象
+    const replyMessage: any = {
+      type: "text",
+      text: translationText,
+    }
+
+    // 如果有关联的消息 ID，添加引用
+    // Line Messaging API v2 支持 quote 字段来引用原消息
+    if (originalMessageId) {
+      replyMessage.quote = {
+        quoteToken: originalMessageId,
+      }
+    }
+
+    const result = await lineClient.replyMessage(replyToken, [replyMessage])
     logger.info("✅ 翻译结果发送成功", { result })
   } catch (error: any) {
     logger.error("❌ 翻译错误", { error: error.message, fullError: error })
@@ -405,12 +418,19 @@ export async function POST(req: NextRequest) {
             }
           } else {
             // 普通消息，进行翻译
-            logger.info("📝 处理翻译请求", { userId, text })
+            // 获取原始消息 ID 用于引用
+            const originalMessageId = (messageEvent.message as any).id
+            logger.info("📝 处理翻译请求", {
+              userId,
+              text,
+              originalMessageId,
+            })
             try {
               await handleMessageTranslation(
                 userId,
                 text,
-                messageEvent.replyToken
+                messageEvent.replyToken,
+                originalMessageId
               )
               logger.info("✅ 成功处理翻译请求")
             } catch (error: any) {
