@@ -113,10 +113,16 @@ async function handleReset(userId: string, replyToken: string) {
   resetUserLanguages(userId)
   logger.info("📤 发送重置确认", { replyToken })
   try {
+    // 动态生成默认语言列表文本
+    const defaultLangNames = DEFAULT_LANGUAGES.map(code => {
+      const lang = LANGUAGES.find(l => l.code === code)
+      return lang ? lang.displayName : code
+    }).join('、')
+    
     const result = await lineClient.replyMessage(replyToken, [
       {
         type: "text",
-        text: "已重置为默认语言：中文简体、英语、泰语",
+        text: `已重置为默认语言：${defaultLangNames}`,
         quickReply: createLanguageQuickReply().quickReply,
       },
     ])

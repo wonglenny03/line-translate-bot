@@ -1,3 +1,5 @@
+import { DEFAULT_LANGUAGES } from './languages';
+
 // 用户语言偏好存储（使用内存存储，生产环境建议使用数据库）
 interface UserPreferences {
   userId: string;
@@ -13,7 +15,7 @@ export function getUserLanguages(userId: string): string[] {
     return preferences.languages;
   }
   // 返回默认语言
-  return ['zh-CN', 'en', 'th'];
+  return DEFAULT_LANGUAGES;
 }
 
 // 设置用户语言偏好
@@ -28,7 +30,7 @@ export function setUserLanguages(userId: string, languages: string[]): void {
 export function resetUserLanguages(userId: string): void {
   userPreferencesMap.set(userId, {
     userId,
-    languages: ['zh-CN', 'en', 'th'],
+    languages: DEFAULT_LANGUAGES,
   });
 }
 
